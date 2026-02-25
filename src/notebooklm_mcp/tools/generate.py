@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from mcp.server.fastmcp import FastMCP
 
 from notebooklm_mcp.client import get_client
+
+logger = logging.getLogger(__name__)
 
 
 def register(mcp: FastMCP) -> None:
@@ -16,6 +20,7 @@ def register(mcp: FastMCP) -> None:
         report_format: str = "briefing_doc",
         language: str = "en",
         custom_prompt: str | None = None,
+        wait: bool = True,
     ) -> str:
         """Generate a report/document from notebook sources.
 
@@ -25,6 +30,7 @@ def register(mcp: FastMCP) -> None:
                           "blog_post", "custom". Use "custom" with custom_prompt.
             language: Language code (e.g., "en", "ko", "ja").
             custom_prompt: Custom instructions for report generation (used with "custom" format).
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status with task ID for polling/downloading.
@@ -47,7 +53,14 @@ def register(mcp: FastMCP) -> None:
             custom_prompt=custom_prompt,
         )
 
-        # Wait for completion
+        if not wait:
+            return (
+                f"Report generation started.\n"
+                f"  Task ID: {status.task_id}\n"
+                f"  Format: {report_format}\n\n"
+                f"Use generation_status to check progress, or download_artifact when ready."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=300.0
         )
@@ -67,6 +80,7 @@ def register(mcp: FastMCP) -> None:
         language: str = "en",
         audio_format: str | None = None,
         audio_length: str | None = None,
+        wait: bool = True,
     ) -> str:
         """Generate an audio overview (podcast) from notebook sources.
 
@@ -77,6 +91,7 @@ def register(mcp: FastMCP) -> None:
             language: Language code (e.g., "en", "ko", "ja").
             audio_format: Format - "deep_dive", "brief", "critique", or "debate".
             audio_length: Length - "short", "medium", or "long".
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status. Audio generation takes 2-5 minutes.
@@ -107,7 +122,13 @@ def register(mcp: FastMCP) -> None:
         client = await get_client()
         status = await client.artifacts.generate_audio(notebook_id, **kwargs)
 
-        # Wait for completion (audio takes a while)
+        if not wait:
+            return (
+                f"Audio generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Audio takes 2-5 minutes. Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=600.0
         )
@@ -125,6 +146,7 @@ def register(mcp: FastMCP) -> None:
         instructions: str | None = None,
         quantity: str | None = None,
         difficulty: str | None = None,
+        wait: bool = True,
     ) -> str:
         """Generate a quiz from notebook sources.
 
@@ -133,6 +155,7 @@ def register(mcp: FastMCP) -> None:
             instructions: Custom instructions for quiz generation.
             quantity: Number of questions - "fewer", "default", or "more".
             difficulty: Difficulty level - "easy", "medium", or "hard".
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status with task ID.
@@ -158,6 +181,14 @@ def register(mcp: FastMCP) -> None:
 
         client = await get_client()
         status = await client.artifacts.generate_quiz(notebook_id, **kwargs)
+
+        if not wait:
+            return (
+                f"Quiz generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=300.0
         )
@@ -194,6 +225,7 @@ def register(mcp: FastMCP) -> None:
         instructions: str | None = None,
         quantity: str | None = None,
         difficulty: str | None = None,
+        wait: bool = True,
     ) -> str:
         """Generate flashcards from notebook sources.
 
@@ -202,6 +234,7 @@ def register(mcp: FastMCP) -> None:
             instructions: Custom instructions for flashcard generation.
             quantity: Number of flashcards - "fewer", "default", or "more".
             difficulty: Difficulty level - "easy", "medium", or "hard".
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status with task ID.
@@ -227,6 +260,14 @@ def register(mcp: FastMCP) -> None:
 
         client = await get_client()
         status = await client.artifacts.generate_flashcards(notebook_id, **kwargs)
+
+        if not wait:
+            return (
+                f"Flashcard generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=300.0
         )
@@ -243,6 +284,7 @@ def register(mcp: FastMCP) -> None:
         notebook_id: str,
         instructions: str | None = None,
         language: str = "en",
+        wait: bool = True,
     ) -> str:
         """Generate a slide deck from notebook sources.
 
@@ -250,6 +292,7 @@ def register(mcp: FastMCP) -> None:
             notebook_id: The ID of the notebook.
             instructions: Custom instructions for slide generation.
             language: Language code (e.g., "en", "ko").
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status with task ID.
@@ -260,6 +303,14 @@ def register(mcp: FastMCP) -> None:
             kwargs["instructions"] = instructions
 
         status = await client.artifacts.generate_slide_deck(notebook_id, **kwargs)
+
+        if not wait:
+            return (
+                f"Slide deck generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=300.0
         )
@@ -277,6 +328,7 @@ def register(mcp: FastMCP) -> None:
         instructions: str | None = None,
         language: str = "en",
         style: str | None = None,
+        wait: bool = True,
     ) -> str:
         """Generate a video overview from notebook sources.
 
@@ -285,6 +337,7 @@ def register(mcp: FastMCP) -> None:
             instructions: Custom instructions for video generation.
             language: Language code.
             style: Visual style - "classic", "whiteboard", "kawaii", "anime", etc.
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status. Video generation takes several minutes.
@@ -304,6 +357,14 @@ def register(mcp: FastMCP) -> None:
 
         client = await get_client()
         status = await client.artifacts.generate_video(notebook_id, **kwargs)
+
+        if not wait:
+            return (
+                f"Video generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Video takes several minutes. Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=600.0
         )
@@ -321,6 +382,7 @@ def register(mcp: FastMCP) -> None:
         instructions: str | None = None,
         language: str = "en",
         orientation: str | None = None,
+        wait: bool = True,
     ) -> str:
         """Generate an infographic from notebook sources.
 
@@ -329,6 +391,7 @@ def register(mcp: FastMCP) -> None:
             instructions: Custom instructions for infographic generation.
             language: Language code.
             orientation: Orientation - "portrait", "landscape", or "square".
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status with task ID.
@@ -348,6 +411,14 @@ def register(mcp: FastMCP) -> None:
 
         client = await get_client()
         status = await client.artifacts.generate_infographic(notebook_id, **kwargs)
+
+        if not wait:
+            return (
+                f"Infographic generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=300.0
         )
@@ -364,6 +435,7 @@ def register(mcp: FastMCP) -> None:
         notebook_id: str,
         instructions: str | None = None,
         language: str = "en",
+        wait: bool = True,
     ) -> str:
         """Generate a data table from notebook sources.
 
@@ -372,6 +444,7 @@ def register(mcp: FastMCP) -> None:
             instructions: Natural language instructions describing the desired table
                          structure (e.g., "compare key concepts across papers").
             language: Language code.
+            wait: If True (default), wait for completion. If False, return task ID immediately.
 
         Returns:
             Generation status with task ID.
@@ -382,6 +455,14 @@ def register(mcp: FastMCP) -> None:
             kwargs["instructions"] = instructions
 
         status = await client.artifacts.generate_data_table(notebook_id, **kwargs)
+
+        if not wait:
+            return (
+                f"Data table generation started.\n"
+                f"  Task ID: {status.task_id}\n\n"
+                f"Use generation_status to check progress."
+            )
+
         final = await client.artifacts.wait_for_completion(
             notebook_id, status.task_id, timeout=300.0
         )
@@ -392,3 +473,56 @@ def register(mcp: FastMCP) -> None:
             f"  Status: {final.status}\n\n"
             f"Use download_artifact with type='data_table' to download as CSV."
         )
+
+    @mcp.tool()
+    async def generation_status(notebook_id: str, task_id: str) -> str:
+        """Check the status of an ongoing generation task.
+
+        Use this to poll the progress of a non-blocking generation
+        (started with wait=False).
+
+        Args:
+            notebook_id: The ID of the notebook.
+            task_id: The task ID returned by a generate_* tool.
+
+        Returns:
+            Current status of the generation task.
+        """
+        client = await get_client()
+
+        try:
+            artifacts = await client.artifacts.list(notebook_id)
+            for artifact in artifacts:
+                if hasattr(artifact, "task_id") and artifact.task_id == task_id:
+                    return (
+                        f"Generation task status:\n"
+                        f"  Task ID: {task_id}\n"
+                        f"  Type: {getattr(artifact, 'artifact_type', 'unknown')}\n"
+                        f"  Status: {getattr(artifact, 'status', 'unknown')}"
+                    )
+        except Exception as e:
+            logger.debug(f"Artifact list check failed: {e}")
+
+        # Fallback: try wait_for_completion with a short timeout
+        try:
+            final = await client.artifacts.wait_for_completion(
+                notebook_id, task_id, timeout=5.0
+            )
+            return (
+                f"Generation task status:\n"
+                f"  Task ID: {task_id}\n"
+                f"  Status: {final.status}"
+            )
+        except TimeoutError:
+            return (
+                f"Generation task status:\n"
+                f"  Task ID: {task_id}\n"
+                f"  Status: still in progress\n\n"
+                f"Try again later or use download_artifact when ready."
+            )
+        except Exception as e:
+            return (
+                f"Generation task status:\n"
+                f"  Task ID: {task_id}\n"
+                f"  Status: unknown (error checking: {e})"
+            )

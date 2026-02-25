@@ -2,9 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
 from notebooklm_mcp.client import get_client
+
+logger = logging.getLogger(__name__)
+
+# Supported file extensions for batch upload
+# Reference: https://support.google.com/notebooklm/answer/16215270
+SUPPORTED_EXTENSIONS = {
+    # Documents
+    ".pdf", ".txt", ".md", ".markdown", ".docx", ".pptx", ".xlsx",
+    # Images
+    ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    # Audio
+    ".mp3", ".wav", ".m4a",
+}
 
 
 def register(mcp: FastMCP) -> None:
@@ -72,6 +89,101 @@ def register(mcp: FastMCP) -> None:
             f"  Type: {source.source_type}\n"
             f"  Status: {source.status}"
         )
+
+    @mcp.tool()
+    async def source_add_batch(
+        notebook_id: str,
+        urls: list[str] | None = None,
+        file_paths: list[str] | None = None,
+        directory_path: str | None = None,
+        file_pattern: str = "*",
+    ) -> str:
+        """Add multiple sources to a notebook at once (batch operation).
+
+        Supports adding multiple URLs, files, and/or all matching files
+        from a directory simultaneously.
+
+        Args:
+            notebook_id: The ID of the notebook.
+            urls: Optional list of URLs to add as sources.
+            file_paths: Optional list of local file paths to upload.
+            directory_path: Optional directory path to scan for files.
+            file_pattern: Glob pattern for directory scan (default "*").
+                         Examples: "*.pdf", "*.md", "report_*".
+
+        Returns:
+            Summary of batch operation with success/failure counts.
+        """
+        client = await get_client()
+        all_urls = list(urls or [])
+        all_files = list(file_paths or [])
+
+        # Scan directory if provided
+        if directory_path:
+            dir_path = Path(directory_path)
+            if not dir_path.is_dir():
+                return f"Error: Directory not found: {directory_path}"
+
+            for f in dir_path.glob(file_pattern):
+                if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS:
+                    all_files.append(str(f))
+
+        if not all_urls and not all_files:
+            return "Error: No sources to add. Provide urls, file_paths, or directory_path."
+
+        # Build coroutines for concurrent execution
+        results: list[dict] = []
+
+        async def add_url(url: str) -> dict:
+            try:
+                source = await client.sources.add_url(notebook_id, url, wait=False)
+                return {"type": "url", "name": url, "id": source.id, "ok": True}
+            except Exception as e:
+                return {"type": "url", "name": url, "error": str(e), "ok": False}
+
+        async def add_file(fp: str) -> dict:
+            try:
+                source = await client.sources.add_file(notebook_id, fp, wait=False)
+                return {"type": "file", "name": fp, "id": source.id, "ok": True}
+            except Exception as e:
+                return {"type": "file", "name": fp, "error": str(e), "ok": False}
+
+        coros = [add_url(u) for u in all_urls] + [add_file(f) for f in all_files]
+        results = await asyncio.gather(*coros, return_exceptions=True)
+
+        # Separate successes and failures
+        succeeded = []
+        failed = []
+        for r in results:
+            if isinstance(r, Exception):
+                failed.append({"name": "unknown", "error": str(r)})
+            elif r["ok"]:
+                succeeded.append(r)
+            else:
+                failed.append(r)
+
+        # Wait for successful sources to finish processing
+        if succeeded:
+            source_ids = [s["id"] for s in succeeded]
+            try:
+                await client.sources.wait_for_sources(notebook_id, source_ids)
+            except Exception as e:
+                logger.warning(f"Error waiting for sources: {e}")
+
+        # Build summary
+        lines = [f"Batch add complete: {len(succeeded)} succeeded, {len(failed)} failed.\n"]
+
+        if succeeded:
+            lines.append("Succeeded:")
+            for s in succeeded:
+                lines.append(f"  + [{s['id']}] {s['name']} ({s['type']})")
+
+        if failed:
+            lines.append("\nFailed:")
+            for f in failed:
+                lines.append(f"  - {f.get('name', 'unknown')}: {f.get('error', 'unknown error')}")
+
+        return "\n".join(lines)
 
     @mcp.tool()
     async def source_list(notebook_id: str) -> str:

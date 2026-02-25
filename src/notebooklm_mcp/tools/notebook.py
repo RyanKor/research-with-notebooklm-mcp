@@ -31,21 +31,64 @@ def register(mcp: FastMCP) -> None:
         )
 
     @mcp.tool()
-    async def notebook_list() -> str:
-        """List all NotebookLM notebooks.
+    async def notebook_list(
+        query: str | None = None,
+        sort_by: str = "created",
+        limit: int | None = None,
+    ) -> str:
+        """List all NotebookLM notebooks with optional filtering.
+
+        Args:
+            query: Optional search string to filter notebooks by title
+                  (case-insensitive substring match).
+            sort_by: Sort order - "created" (newest first) or "title" (alphabetical).
+            limit: Maximum number of notebooks to return.
 
         Returns:
             A formatted list of all notebooks with their IDs and titles.
         """
         client = await get_client()
         notebooks = await client.notebooks.list()
+
         if not notebooks:
             return "No notebooks found. Create one with notebook_create."
+
+        # Filter by query if provided
+        if query:
+            query_lower = query.lower()
+            notebooks = [nb for nb in notebooks if query_lower in nb.title.lower()]
+
+        if not notebooks:
+            return f"No notebooks matching '{query}' found."
+
+        # Sort
+        if sort_by == "title":
+            notebooks.sort(key=lambda nb: nb.title.lower())
+        # "created" is the default order from the API (newest first)
+
+        # Limit
+        if limit and limit > 0:
+            notebooks = notebooks[:limit]
 
         lines = [f"Found {len(notebooks)} notebook(s):\n"]
         for nb in notebooks:
             lines.append(f"  - [{nb.id}] {nb.title} (created: {nb.created_at})")
         return "\n".join(lines)
+
+    @mcp.tool()
+    async def notebook_search(query: str) -> str:
+        """Search notebooks by title.
+
+        Convenience alias for notebook_list with a query filter.
+
+        Args:
+            query: Search string to filter notebooks by title
+                  (case-insensitive substring match).
+
+        Returns:
+            Matching notebooks with their IDs and titles.
+        """
+        return await notebook_list(query=query)
 
     @mcp.tool()
     async def notebook_get(notebook_id: str) -> str:
