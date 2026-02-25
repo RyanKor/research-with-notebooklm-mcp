@@ -42,7 +42,18 @@ mcp = FastMCP(
 )
 
 # Register all tools
-from notebooklm_mcp.tools import notebook, source, chat, research, generate, download, pipeline, auth, compare
+from notebooklm_mcp.tools import (
+    notebook,
+    source,
+    chat,
+    research,
+    generate,
+    download,
+    pipeline,
+    auth,
+    compare,
+    persona,
+)
 
 notebook.register(mcp)
 source.register(mcp)
@@ -53,6 +64,7 @@ download.register(mcp)
 pipeline.register(mcp)
 auth.register(mcp)
 compare.register(mcp)
+persona.register(mcp)
 
 # Register prompts
 from notebooklm_mcp.prompts import register_prompts
